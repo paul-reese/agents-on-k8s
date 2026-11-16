@@ -1,0 +1,14 @@
+# OpenAI model exposed through the gateway. The kagent ModelConfig "model" must match metadata.name.
+# Field layout reconstructed from the kagent BYO-agentgateway guide; verify with:
+#   kubectl explain agentgatewaymodel.spec
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: gpt-4o-mini
+  namespace: agentgateway-system
+spec:
+  provider: OpenAI
+  policies:
+    auth:
+      secretRef:
+        name: openai-key

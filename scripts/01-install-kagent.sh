@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Module 1: install kagent with Anthropic as the default provider (direct, no gateway yet).
+source "$(dirname "$0")/lib.sh"
+use_ctx
+require_var ANTHROPIC_API_KEY
+
+VER=()
+[[ -n "${KAGENT_VERSION:-}" ]] && VER=(--version "$KAGENT_VERSION")
+
+helm upgrade --install kagent-crds oci://ghcr.io/kagent-dev/kagent/helm/kagent-crds \
+  --namespace kagent --create-namespace "${VER[@]}"
+
+helm upgrade --install kagent oci://ghcr.io/kagent-dev/kagent/helm/kagent \
+  --namespace kagent "${VER[@]}" \
+  --set providers.default=anthropic \
+  --set providers.anthropic.apiKey="$ANTHROPIC_API_KEY"
+
+kubectl rollout status -n kagent deploy --timeout=10m
+echo "Open the UI with:"
+echo "  kubectl port-forward -n kagent service/kagent-ui 8082:8080   # then http://localhost:8082"

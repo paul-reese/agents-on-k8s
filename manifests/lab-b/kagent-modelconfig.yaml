@@ -1,0 +1,11 @@
+# kagent ModelConfig that sends model calls to agentgateway instead of the provider.
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: agentgateway-model
+  namespace: kagent
+spec:
+  provider: OpenAI
+  model: gpt-4o-mini
+  openAI:
+    baseUrl: http://agentgateway-proxy.agentgateway-system.svc.cluster.local/v1
