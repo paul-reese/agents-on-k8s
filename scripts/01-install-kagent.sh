@@ -18,6 +18,7 @@ helm upgrade --install kagent oci://ghcr.io/kagent-dev/kagent/helm/kagent \
   --set providers.default=anthropic \
   --set providers.anthropic.apiKey="$ANTHROPIC_API_KEY"
 
-kubectl rollout status -n kagent deploy --timeout=10m
+echo "Waiting for kagent deployments (first run pulls large images; can take several minutes)..."
+kubectl wait --for=condition=Available deployment --all -n kagent --timeout=15m
 echo "Open the UI with:"
 echo "  kubectl port-forward -n kagent service/kagent-ui 8082:8080   # then http://localhost:8082"
