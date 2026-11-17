@@ -1,0 +1,18 @@
+# Module 1b: let an agent reach the GitHub API.
+# Reference it from an Agent:  spec.egressPolicyRefs: [{name: github-api}]
+apiVersion: api.kagent.dev/v1alpha3
+kind: EgressPolicy
+metadata:
+  name: github-api
+  namespace: kagent
+spec:
+  destinations:
+    - origin: https://api.github.com
+      # Optional: have the gateway inject a token so the agent never sees it.
+      # kubectl create secret generic github-token -n kagent --from-literal=token=<PAT>
+      # authentication:
+      #   header: Authorization
+      #   prefix: "Bearer "
+      #   secretKeyRef:
+      #     name: github-token
+      #     key: token

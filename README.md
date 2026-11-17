@@ -12,8 +12,9 @@ local rebuild on your own cluster using current upstream charts.
 | # | Goal | Solo lab(s) | Local exercise | Status |
 |---|------|-------------|----------------|--------|
 | 0 | Cluster + Gateway API | Basics of Kubernetes Gateway API | [docs/00-colima.md](docs/00-colima.md) | Ready |
-| 1 | First agent | Building an AI agent with kagent; Implement AgentOps with kagent | [docs/01-kagent.md](docs/01-kagent.md) | Ready |
-| 2 | LLM traffic through a gateway | Program agentgateway for LLM consumption | [docs/02-agentgateway.md](docs/02-agentgateway.md) | Ready (verify YAML) |
+| 1 | First agent (kagent 1.0) | Building an AI agent with kagent; Implement AgentOps with kagent | [docs/01-kagent.md](docs/01-kagent.md) | Ready, tested |
+| 1b | Egress policies | (none; new in kagent 1.0) | [docs/01b-egress.md](docs/01b-egress.md) | Ready |
+| 2 | LLM traffic through a gateway | Program agentgateway for LLM consumption | [docs/02-agentgateway.md](docs/02-agentgateway.md) | Needs rework for kagent 1.0 |
 | 3 | Tools via MCP | Build, run & deploy MCP servers to Kubernetes; Multiplex MCP servers & control auth policy | [docs/03-mcp.md](docs/03-mcp.md) | Outline |
 | 4 | Your own agents + A2A | Local development with kagent CLI; Build AI agents with agent skills | [docs/04-custom-agents.md](docs/04-custom-agents.md) | Outline |
 | 5 | Observability | Observe Agent & MCP server interactions (enterprise) | [docs/05-observability.md](docs/05-observability.md) | Outline |
@@ -37,6 +38,9 @@ Tear down with `./scripts/teardown.sh` (deletes the Colima profile).
 
 ## Notes
 
+- **kagent 1.0 (Nov 2026) changed the install and runtime model.** Agents run as sandboxed actors on
+  Substrate, which needs Pod Certificates (feature gates set in `00-cluster-up.sh`) and the `kagent install`
+  CLI. Solo Academy labs and kagent.dev pages that predate 1.0 describe the older Helm-only model.
 - Upstream docs assume kind. Here, `kind create cluster` and `cloud-provider-kind` steps are replaced by
   Colima's k3s and `kubectl port-forward`.
 - agentgateway is installed with its own control plane charts (`cr.agentgateway.dev`), not via kgateway as in

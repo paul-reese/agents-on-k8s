@@ -1,5 +1,9 @@
 # Module 2: agentgateway in front of kagent
 
+> **Needs rework for kagent 1.0.** This module was written against kagent 0.x (`kagent.dev/v1alpha2`
+> ModelConfig, Helm-only install). kagent 1.0 uses `api.kagent.dev/v1alpha3` and its own egress gateway
+> (see [Module 1b](01b-egress.md)). Expect field changes before this works.
+
 **Solo lab:** [Program agentgateway for LLM consumption](https://solo.io/resources/lab/program-agentgateway-for-llm-consumption)
 (note: the lab uses kgateway as the control plane; this repo uses agentgateway's own charts).
 

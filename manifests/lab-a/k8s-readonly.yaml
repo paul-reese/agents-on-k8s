@@ -1,0 +1,37 @@
+# Module 1: a read-only Kubernetes agent on kagent 1.0.
+# Behavior lives in the AgentTemplate; the Agent only picks a template and a harness (runtime).
+apiVersion: api.kagent.dev/v1alpha3
+kind: AgentTemplate
+metadata:
+  name: k8s-readonly
+  namespace: kagent
+spec:
+  description: Read-only Kubernetes helper
+  modelConfig:
+    name: default-model-config          # created by `kagent install --provider Anthropic`
+  systemPrompt: |
+    You help users understand the Kubernetes cluster you run in.
+    You can only read; never suggest you changed anything.
+  tools:
+    # The tool list is the agent's entire capability. No write tools = cannot change the cluster.
+    - mcp:
+        server:
+          kind: RemoteMCPServer
+          name: kagent-tool-server      # check: kubectl get remotemcpserver -n kagent
+        tools:
+          - k8s_get_resources
+          - k8s_describe_resource
+          - k8s_get_events
+          - k8s_get_pod_logs
+---
+apiVersion: api.kagent.dev/v1alpha3
+kind: Agent
+metadata:
+  name: k8s-readonly
+  namespace: kagent
+spec:
+  harnessRef:
+    name: kagent-default                # also available: codex-default, claude-default
+  template:
+    ref:
+      name: k8s-readonly
