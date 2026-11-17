@@ -71,6 +71,37 @@ kubectl get gatewayclass                                # empty: nothing acts on
 That empty `gatewayclass` list is the key lesson. The CRDs taught Kubernetes what a Gateway **is**, but
 nothing **acts** on one until a controller is installed. In Module 2, agentgateway becomes that controller.
 
+### What happens when you `kubectl apply`
+
+Every later module follows this pattern: kagent's controller and agentgateway's controller are just more
+loops like this one.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor You
+    participant API as Kubernetes API server
+    participant Store as etcd (cluster database)
+    participant Ctrl as A controller (e.g. kagent, agentgateway)
+    participant World as Running things (pods, proxies, sandboxes)
+
+    You->>API: kubectl apply -f thing.yaml
+    API->>API: validate against the CRD schema
+    API->>Store: save desired state
+    API-->>You: "created" (nothing is running yet)
+    Store-->>Ctrl: watch event: thing changed
+    loop until actual matches desired
+        Ctrl->>World: create / update what the YAML describes
+        World-->>Ctrl: current state
+        Ctrl->>API: write status (Ready, Programmed, Accepted...)
+    end
+    You->>API: kubectl get thing
+    API-->>You: status conditions
+```
+
+That's why `kubectl apply` returns immediately and you then **watch status** (`-w`, conditions). The
+YAML is a request; the status says whether it was carried out.
+
 ## Why Colima k3s instead of kind
 
 Upstream kagent and agentgateway docs assume kind. Colima's k3s is one VM and one command. Wherever the

@@ -7,6 +7,69 @@ every model, tool, and agent call.
 Each module pairs a free [Solo Academy lab](https://www.solo.io/mcp-academy) (concepts, hosted sandbox) with a
 local rebuild on your own cluster using current upstream charts.
 
+## The big picture
+
+Where you end up after Module 5. Each module adds one layer.
+
+```mermaid
+flowchart LR
+    YOU(["You<br/>dashboard, curl, kagent CLI"])
+
+    subgraph kagent_ns["kagent namespace (Module 1)"]
+        UI["kagent-ui"]
+        CTRL["kagent-controller<br/>compiles agents, A2A gateway :8083"]
+        PG[("PostgreSQL<br/>revisions, sessions")]
+        TOOLS["kagent-tools<br/>k8s_* tools"]
+    end
+
+    subgraph ate["ate-system (Module 1)"]
+        SUB["Substrate workers<br/>agent sandboxes"]
+        EGR["egress gateway<br/>allowlist + credentials (1b)"]
+    end
+
+    subgraph agw["agentgateway-system (Modules 2-3)"]
+        PROXY["agentgateway-proxy<br/>/v1/messages, /mcp<br/>guards, budgets, tool authz"]
+    end
+
+    subgraph mcp["mcp namespace (Module 3)"]
+        FETCH["website-fetcher"]
+        EVERY["everything"]
+    end
+
+    subgraph obs["observability (Module 5)"]
+        JAEGER[("Jaeger")]
+    end
+
+    ANTH(["Anthropic API"])
+
+    YOU --> UI --> CTRL
+    YOU -- A2A (Module 4) --> CTRL
+    CTRL <--> PG
+    CTRL -- start session --> SUB
+    SUB --> EGR
+    EGR --> TOOLS
+    EGR --> PROXY
+    PROXY -- key added --> ANTH
+    PROXY --> FETCH
+    PROXY --> EVERY
+    SUB -. traces .-> JAEGER
+    CTRL -. traces .-> JAEGER
+    PROXY -. traces .-> JAEGER
+```
+
+## Learning path
+
+```mermaid
+flowchart LR
+    M0["0 Cluster<br/>Colima k3s 1.35"] --> M1["1 First agent<br/>kagent 1.0"]
+    M1 --> M1b["1b Egress<br/>what agents may reach"]
+    M1 --> M2["2 agentgateway<br/>model calls"]
+    M2 --> M3["3 MCP tools<br/>through the gateway"]
+    M3 --> M4["4 Agents together<br/>sub-agents, A2A"]
+    M2 --> M5["5 Observability<br/>traces, metrics, logs"]
+    M4 --> M5
+```
+
 ## Modules
 
 Each lesson follows the same shape: why it matters, how the pieces fit (tables plus a diagram), steps where

@@ -27,6 +27,33 @@ One way to remember it: the AgentTemplate is the job description, the Harness is
 the Agent is the hire (this job, this worker, this badge), the ModelConfig is the brain subscription, a
 RemoteMCPServer is the toolbox, and an EgressPolicy is the building badge.
 
+### How the resources connect
+
+Arrows mean "refers to by name". The Agent is the only thing you chat with; everything else is reached
+through it.
+
+```mermaid
+flowchart LR
+    AG["Agent<br/>k8s-readonly"]
+    T["AgentTemplate<br/>k8s-readonly<br/>prompt + tool list"]
+    H["Harness<br/>kagent-default<br/>(runtime)"]
+    EP["EgressPolicy<br/>(optional, 1b)"]
+    MC["ModelConfig<br/>default-model-config"]
+    SEC[("Secret<br/>API key")]
+    RMS["RemoteMCPServer<br/>kagent-tool-server"]
+    TOOLS["kagent-tools pod<br/>k8s_* tools"]
+
+    AG -- template.ref --> T
+    AG -- harnessRef --> H
+    AG -. egressPolicyRefs .-> EP
+    T -- modelConfig --> MC
+    MC -- apiKeySecret --> SEC
+    T -- "tools[].mcp.server<br/>(+ allowed tool names)" --> RMS
+    RMS -- url --> TOOLS
+```
+
+If any arrow points at something missing, the Agent reports `ResolvedRefs=False` and never becomes Ready.
+
 ### What runs them
 
 Five components turn that YAML into running sessions. None of them is a per-agent Deployment.
@@ -119,6 +146,24 @@ kagent dashboard        # or: kubectl port-forward -n kagent service/kagent-ui 8
 
 First run pulls large images: expect 5 to 10 minutes.
 
+### What `kagent install` sets up, in order
+
+Each step depends on the one before. The three errors you can hit match the three failure points.
+
+```mermaid
+flowchart TD
+    A["Cluster with Pod Certificate feature gates<br/>(Module 0)"] --> B["substrate-podcert<br/>certificate controller"]
+    B --> C["Substrate<br/>ate-system: API, workers, egress gateway"]
+    C --> D["PostgreSQL in kagent ns<br/>+ roles and schemas"]
+    D --> E["Secrets<br/>kagent-postgres-owner / -readwrite"]
+    E --> F["kagent chart<br/>controller, ui, tools, harnesses"]
+    F --> G["Ready: kagent dashboard"]
+
+    B -. "fails: podcertificate-controller not ready" .-> X1["Feature gates missing → recreate cluster"]
+    E -. "plain helm install skips D and E" .-> X2["Controller stuck: secret not found"]
+    F -. "controller not running yet" .-> X3["Dashboard HTTP 502"]
+```
+
 ## Step 1: Look around
 
 ```bash
@@ -188,6 +233,31 @@ controller log shows the session starting. You may not see a new pod per chat, b
 inside existing workers.
 
 ## Step 4: Change it and watch a new revision
+
+Every edit produces a new, immutable revision. The old one keeps serving until the new one is built, and
+open chats stay on the revision they started with:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor You
+    participant Ctrl as kagent-controller
+    participant Sub as Substrate
+    participant S1 as Chat A (open)
+    participant S2 as Chat B (new)
+
+    Note over Ctrl: revision r1 is serving
+    S1->>Ctrl: chat A runs on r1
+    You->>Ctrl: kubectl edit agenttemplate (new prompt)
+    Ctrl->>Ctrl: compile r2 (new digest)
+    Ctrl->>Sub: build + snapshot r2
+    Note over Ctrl,Sub: r1 still serves new chats meanwhile
+    Sub-->>Ctrl: r2 snapshot ready
+    Ctrl->>Ctrl: promote r2
+    S2->>Ctrl: chat B starts on r2
+    S1->>Ctrl: chat A continues on r1 (pinned)
+    Note over Ctrl,Sub: if r2 failed to build, new chats would keep using r1
+```
 
 1. Edit the template's system prompt, for example "answer only in bullet points":
    `kubectl edit agenttemplate k8s-readonly -n kagent`

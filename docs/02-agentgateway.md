@@ -21,6 +21,20 @@ How this differs from kagent's own egress gateway ([Module 1b](01b-egress.md)): 
 **whether** a sandbox may reach a host. agentgateway decides **what an LLM, MCP or agent call may contain
 and how it is routed**. You use both.
 
+## Before and after
+
+```mermaid
+flowchart LR
+    subgraph before["Module 1: direct"]
+        A1["agent sandbox"] -- "key injected by<br/>Substrate" --> E1["Substrate egress"] --> P1(["api.anthropic.com"])
+    end
+    subgraph after["Module 2: through agentgateway"]
+        A2["agent sandbox<br/>(no key)"] --> E2["Substrate egress"] --> G2["agentgateway-proxy<br/>guards, budgets, metrics<br/>adds key"] --> P2(["api.anthropic.com"])
+    end
+```
+
+What changes for the agent: only its ModelConfig. The prompt, tools and harness stay the same.
+
 ## How it fits together
 
 | Resource | API | Holds | Analogy |
@@ -38,6 +52,36 @@ The components that run them:
 | agentgateway controller | `agentgateway-system` | Watches Gateways, routes, backends and policies; turns them into proxy config |
 | `agentgateway-proxy` | `agentgateway-system` | The data plane: receives each call, applies policy, adds the key, forwards to Anthropic |
 | Substrate egress gateway | `ate-system` | Still checks the sandbox may reach the proxy (allowed automatically, from the ModelConfig) |
+
+### How the resources connect
+
+Gateway API resources point **up** at what they attach to: routes name their Gateway in `parentRefs`,
+policies name their route in `targetRefs`. That lets different teams own different pieces.
+
+```mermaid
+flowchart LR
+    subgraph kagent_ns["kagent namespace"]
+        AG["Agent<br/>k8s-via-gateway"] --> T["AgentTemplate<br/>k8s-via-gateway"]
+        T -- modelConfig --> MC["ModelConfig<br/>anthropic-via-agentgateway<br/>baseUrl = gateway, no key"]
+    end
+    subgraph agw_ns["agentgateway-system namespace"]
+        GW["Gateway<br/>agentgateway-proxy :80"]
+        RT["HTTPRoute anthropic<br/>/v1/messages"]
+        BE["AgentgatewayBackend anthropic<br/>provider: anthropic"]
+        SEC[("Secret anthropic-secret<br/>the only copy of the key")]
+        PG["AgentgatewayPolicy<br/>prompt guard"]
+        PB["AgentgatewayPolicy<br/>token budget"]
+        SVC["Service agentgateway-proxy<br/>(created by the controller)"]
+    end
+
+    MC -- "HTTP calls to" --> SVC
+    GW -. creates .-> SVC
+    RT -- parentRefs --> GW
+    RT -- backendRefs --> BE
+    BE -- policies.auth.secretRef --> SEC
+    PG -- targetRefs --> RT
+    PB -- targetRefs --> RT
+```
 
 ### How a model call flows
 

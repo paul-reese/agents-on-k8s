@@ -85,8 +85,24 @@ controller so agents are re-prepared: `kubectl rollout restart deploy/kagent-con
 kubectl port-forward -n observability svc/jaeger 16686:16686    # http://localhost:16686
 ```
 
-In Jaeger, pick a service (the kagent runtime, the controller, or agentgateway) and **Find Traces**. Open
-one and look at:
+In Jaeger, pick a service (the kagent runtime, the controller, or agentgateway) and **Find Traces**.
+
+What one agent turn usually looks like inside a trace (one question that needed one tool):
+
+```mermaid
+flowchart TD
+    REQ["a2a.request (controller)<br/>whole turn, e.g. 9.8 s"] --> INV["invoke_agent k8s-readonly (runtime)<br/>9.6 s"]
+    INV --> C1["chat claude-haiku-4-5<br/>decide what to do<br/>2.1 s, in 1,200 / out 80 tokens"]
+    INV --> T1["execute_tool k8s_get_resources<br/>0.4 s"]
+    INV --> C2["chat claude-haiku-4-5<br/>read tool result, answer<br/>3.0 s, in 2,900 / out 310 tokens"]
+    C1 -. "same call seen by" .-> G1["agentgateway span<br/>route anthropic, tokens"]
+    C2 -. "same call seen by" .-> G2["agentgateway span<br/>route anthropic, tokens"]
+```
+
+Numbers are illustrative; read yours from the trace. Notice that input tokens jump on the second model
+call, because the tool result was added to the conversation.
+
+Open one and look at:
 
 - **The shape:** one `invoke_agent` span containing alternating `chat` (model) and `execute_tool` spans.
   That alternation is the agent loop: think, act, read the result, think again.

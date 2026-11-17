@@ -66,6 +66,30 @@ The agent sends a placeholder (`Authorization: Bearer kagent-credential-injected
 gateway replaces the header with the real value from the Secret. The token never enters the sandbox, so a
 prompt-injected agent can't leak it. The gateway *replaces* an existing header but doesn't add a missing one.
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant SB as Agent sandbox
+    participant EG as Substrate egress gateway
+    participant CP as Credential provider
+    participant K8s as Secret github-token (kagent ns)
+    participant GH as api.github.com
+
+    SB->>EG: GET https://api.github.com/... <br/>Authorization: Bearer kagent-credential-injected
+    EG->>EG: origin allowed? (EgressPolicy github-api on this Agent)
+    EG->>CP: credential for this origin + header?
+    CP->>K8s: read token (cached up to 5 min)
+    K8s-->>CP: real token
+    CP-->>EG: real token
+    EG->>EG: replace header value: "Bearer " + token
+    EG->>GH: GET ... Authorization: Bearer ghp_real...
+    GH-->>EG: response
+    EG-->>SB: response (the sandbox never saw the token)
+```
+
+The same mechanism handles ModelConfig API keys in Module 1: kagent turns `apiKeySecret` into a binding
+for the provider's origin, so the model key never enters the sandbox either.
+
 ## Exercise
 
 Egress only matters for an agent that makes its own HTTP calls. `k8s-readonly` only calls in-cluster

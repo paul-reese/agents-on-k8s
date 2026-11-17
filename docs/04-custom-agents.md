@@ -21,6 +21,21 @@ kagent 1.0 has two different ways for agents to work together. Don't confuse the
 | Who calls it | The parent model, as if it were a tool | Any A2A client: your code, another platform, the CLI |
 | Status in 1.0 | Available | Endpoint available; agent-to-agent delegation through it ("dedicated" sub-agents) is deferred |
 
+```mermaid
+flowchart LR
+    subgraph subagents["Sub-agents: one sandbox"]
+        direction TB
+        P["ops-lead<br/>(parent)"] --> C1["kubernetes<br/>(k8s-readonly template)"]
+        P --> C2["researcher<br/>(web-reader template)"]
+    end
+    subgraph a2a["A2A: separate agents over the network"]
+        direction TB
+        CL(["Any A2A client<br/>curl, CLI, UI, other platforms"]) -- "POST /agents/kagent/k8s-readonly" --> GW["kagent A2A gateway<br/>controller :8083"]
+        GW --> SA["k8s-readonly<br/>own sandbox, own session"]
+        GW --> SB["web-reader<br/>own sandbox, own session"]
+    end
+```
+
 ## How it fits together
 
 | Piece | Responsible for |
@@ -119,6 +134,33 @@ curl -s -H 'X-User-Id: me' -H 'A2A-Version: 1.0' -H 'content-type: application/j
   continue the same conversation.
 - **The same session shows up in the UI** under that user. A2A, MCP and the UI all go through the same
   controller.
+
+How a conversation continues over A2A:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor You as You (curl)
+    participant GW as kagent A2A gateway :8083
+    participant DB as PostgreSQL
+    participant SB as k8s-readonly sandbox
+
+    You->>GW: GET /agents/kagent/k8s-readonly/.well-known/agent-card.json
+    GW-->>You: agent card (name, skills, endpoints)
+    You->>GW: SendMessage, no contextId
+    GW->>DB: create session (contextId = C1) and task T1
+    GW->>SB: start actor, run message
+    SB-->>GW: answer
+    GW->>DB: save task T1 result
+    GW-->>You: task T1, contextId C1, answer
+    You->>GW: SendMessage with contextId C1
+    GW->>DB: look up session C1 (and check it is yours)
+    GW->>SB: same session, remembers turn 1
+    SB-->>GW: answer
+    GW-->>You: task T2, contextId C1
+```
+
+Leave out `contextId` and you start a new conversation; send it back and you continue one.
 
 ## Step 4: Same template, different runtime
 

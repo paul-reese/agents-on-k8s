@@ -30,6 +30,15 @@ Two layers decide which tools an agent can use. Both must allow a tool:
 | Gateway allowlist | `AgentgatewayPolicy` on the MCP backend | Every client of the gateway | Organization-wide rules ("nobody gets printEnv") |
 | Agent allowlist | `AgentTemplate.spec.tools[].mcp.tools` | That template only | What this particular agent needs |
 
+```mermaid
+flowchart LR
+    ALL["All tools<br/>fetch, echo, add, printEnv,<br/>getTinyImage, ..."] --> G{"Gateway policy<br/>mcp-tool-allowlist"}
+    G -- "fetch, echo, add" --> A{"web-reader template<br/>tools list"}
+    G -. "printEnv, ... hidden<br/>from every client" .-> X1["✗"]
+    A -- "fetch, echo" --> M["What the model sees"]
+    A -. "add not listed" .-> X2["✗"]
+```
+
 | Resource | API | Responsible for |
 |---|---|---|
 | MCP server `Deployment` + `Service` | Kubernetes | Runs the tools. `appProtocol: agentgateway.dev/mcp` marks the Service as MCP |
@@ -38,6 +47,36 @@ Two layers decide which tools an agent can use. Both must allow a tool:
 | `AgentgatewayPolicy` (`mcp-tool-allowlist`) | agentgateway | Gateway-side tool authorization (CEL rules on `mcp.tool.name`) |
 | `RemoteMCPServer` (`agentgateway-mcp`) | kagent | Tells kagent where the MCP endpoint is and which protocol to speak |
 | `AgentTemplate` (`web-reader`) | kagent | Picks tools from that server for one agent |
+
+### How the resources connect
+
+```mermaid
+flowchart LR
+    subgraph kagent_ns["kagent namespace"]
+        AG["Agent web-reader"] --> T["AgentTemplate web-reader<br/>tools: fetch, echo"]
+        T -- "tools[].mcp.server" --> RMS["RemoteMCPServer<br/>agentgateway-mcp<br/>STREAMABLE_HTTP"]
+    end
+    subgraph agw_ns["agentgateway-system namespace"]
+        SVC["agentgateway-proxy<br/>/mcp"]
+        RT["HTTPRoute mcp<br/>/mcp"]
+        BE["AgentgatewayBackend mcp<br/>prefixMode: Never<br/>failureMode: FailOpen"]
+        POL["AgentgatewayPolicy<br/>mcp-tool-allowlist"]
+    end
+    subgraph mcp_ns["mcp namespace"]
+        F["Service website-fetcher<br/>SSE :80"]
+        E["Service everything<br/>Streamable HTTP :3001"]
+    end
+
+    RMS -- url --> SVC
+    SVC --- RT
+    RT -- backendRefs --> BE
+    POL -- targetRefs --> BE
+    BE -- "targets[website-fetcher]" --> F
+    BE -- "targets[everything]" --> E
+```
+
+The agent speaks one protocol (Streamable HTTP) to one URL. The gateway converts it for each server,
+including the SSE one.
 
 **Where tools run:** the tools run in the MCP server pods, **not** in the agent's sandbox. When `fetch`
 downloads a web page, the request leaves from the `website-fetcher` pod with normal cluster networking.
