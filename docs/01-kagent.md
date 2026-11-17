@@ -23,6 +23,35 @@ inside Substrate, kagent's sandbox runtime.
 
 The chain: **Agent → AgentTemplate → ModelConfig + tools**, run by a **Harness** on **Substrate**.
 
+One way to remember it: the AgentTemplate is the job description, the Harness is the type of worker hired,
+the Agent is the hire (this job, this worker, this badge), the ModelConfig is the brain subscription, a
+RemoteMCPServer is the toolbox, and an EgressPolicy is the building badge.
+
+### What runs them
+
+Five components turn that YAML into running sessions. None of them is a per-agent Deployment.
+
+| Component | Namespace | Responsible for |
+|---|---|---|
+| `kagent-controller` | `kagent` | Compiler and bookkeeper. Watches your YAML, compiles each Agent into a fixed revision, records it in Postgres, asks Substrate to build it, and reports `Ready`/`ResolvedRefs` on the Agent. The only component that decides egress grants. |
+| PostgreSQL | `kagent` | kagent's memory: agent definitions, revisions, sessions, egress grants. New sessions start from what is recorded here, not directly from your YAML. |
+| Substrate | `ate-system` | Where agents run. Boots each revision once and snapshots it; every chat session starts from that snapshot as a sandboxed actor, isolated with gVisor in worker pods. Its egress gateway enforces network policy and injects credentials. |
+| `kagent-tools` | `kagent` | The pod behind `kagent-tool-server` that actually runs the `k8s_*` calls against the cluster. |
+| `kagent-ui` | `kagent` | The dashboard, a front end to the controller. Shows HTTP 502 when the controller is down. |
+
+### How a chat flows
+
+1. You send a message in **kagent-ui**.
+2. **kagent-controller** starts a session from the agent's current revision, recorded in **PostgreSQL**.
+3. **Substrate** starts a sandboxed actor from that revision's snapshot.
+4. The actor calls Anthropic through the **egress gateway**. Allowed automatically, because the
+   **ModelConfig** names that provider.
+5. The actor calls `k8s_get_resources` on **kagent-tools**. Also allowed automatically, because the
+   **AgentTemplate** lists that tool.
+6. The answer returns to the UI.
+
+This is why your agent has no Deployment of its own: Substrate runs it, and the controller keeps track of it.
+
 ## Install
 
 kagent 1.0's Helm chart no longer deploys PostgreSQL or Substrate. The `kagent install` CLI sets up both
