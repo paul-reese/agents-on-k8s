@@ -41,6 +41,57 @@ Five components turn that YAML into running sessions. None of them is a per-agen
 
 ### How a chat flows
 
+The diagram shows both phases: building an agent once when you apply it, then every chat after that.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor You
+    participant K8s as Kubernetes API
+    participant Ctrl as kagent-controller
+    participant DB as PostgreSQL
+    participant Sub as Substrate (ate-system)
+    participant UI as kagent-ui
+    participant GW as Egress gateway
+    participant LLM as Anthropic
+    participant Tools as kagent-tools
+
+    rect rgb(240, 240, 255)
+    Note over You,Sub: Build once, when you apply or change the agent
+    You->>K8s: kubectl apply Agent + AgentTemplate
+    K8s-->>Ctrl: watch event
+    Ctrl->>Ctrl: compile Agent + Template + Harness + ModelConfig into a revision
+    Ctrl->>DB: record desired revision and egress grants
+    Ctrl->>Sub: create ActorTemplate for the revision
+    Sub->>Sub: boot golden actor, snapshot it
+    Sub-->>Ctrl: snapshot ready
+    Ctrl->>DB: promote revision for new sessions
+    Ctrl->>K8s: Agent status Ready=True
+    end
+
+    rect rgb(240, 255, 240)
+    Note over You,Tools: Every chat
+    You->>UI: send message
+    UI->>Ctrl: start session
+    Ctrl->>DB: look up the agent's current revision
+    Ctrl->>Sub: start actor from that snapshot
+    Sub->>GW: call model
+    GW->>LLM: allowed (inferred from ModelConfig)
+    LLM-->>Sub: response with tool call
+    Sub->>GW: call k8s_get_resources
+    GW->>Tools: allowed (inferred from AgentTemplate tools)
+    Tools-->>Sub: cluster data
+    Sub->>GW: call model with tool result
+    GW->>LLM: forward
+    LLM-->>Sub: final answer
+    Sub-->>Ctrl: answer
+    Ctrl-->>UI: answer
+    UI-->>You: answer
+    end
+```
+
+In words:
+
 1. You send a message in **kagent-ui**.
 2. **kagent-controller** starts a session from the agent's current revision, recorded in **PostgreSQL**.
 3. **Substrate** starts a sandboxed actor from that revision's snapshot.
