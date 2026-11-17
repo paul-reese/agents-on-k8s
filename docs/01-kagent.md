@@ -6,9 +6,22 @@
 
 ## What it does
 
-Installs the kagent CRDs and controller with Anthropic as the default provider. Model calls go straight
-to the provider; Module 2 moves them behind agentgateway. Since kagent 0.7, the kmcp MCP-server
-controller ships with kagent, so Module 3 needs no extra install.
+Installs the `kagent` CLI and runs `kagent install --provider Anthropic`. Model calls go straight to the
+provider; Module 2 moves them behind agentgateway.
+
+> **kagent 1.0 changed the install.** The Helm chart alone no longer deploys PostgreSQL or Substrate (the
+> sandbox runtime agents now run in). A plain `helm install` leaves `kagent-controller` stuck in
+> `ContainerCreating` with `secret "kagent-postgres-readwrite" not found`. `kagent install` sets up
+> Postgres (namespace `kagent`), Substrate (namespace `ate-system`), the DB secrets, and kagent.
+> The script removes an earlier Helm-only install first.
+
+Look around after install:
+
+```bash
+kubectl get pods -n kagent         # controller, ui, tools, postgres
+kubectl get pods -n ate-system     # Substrate: where agent sandboxes run
+kubectl api-resources | grep kagent  # the kinds kagent adds (Agent, ModelConfig, Harness, ...)
+```
 
 ## Exercises
 
@@ -16,10 +29,14 @@ controller ships with kagent, so Module 3 needs no extra install.
 kubectl port-forward -n kagent service/kagent-ui 8082:8080   # http://localhost:8082
 ```
 
-1. Chat with `k8s-agent`: "list the pods in the kagent namespace". Watch which tools it calls.
-2. `kubectl get agents,modelconfigs -n kagent`, then read one Agent's YAML. Prompt, model, and tools are
-   just fields on a resource.
-3. Copy that Agent, change its system prompt, `kubectl apply` it, and chat with your version.
+1. Chat with the default agent in the UI. Ask it something that needs a tool and watch the tool calls.
+2. `kubectl get agents,modelconfigs -n kagent`, then read one Agent's YAML (`-o yaml`). Prompt, model,
+   and tools are just fields on a resource.
+3. See what the controller built from it: `kubectl get deploy,svc,pods -n kagent` and `-n ate-system`.
+4. Copy that Agent, change its system prompt, `kubectl apply` it, and chat with your version.
+
+Agent names and fields shift between kagent releases. If a name above doesn't exist, use
+`kubectl get agents -A` and `kubectl explain agent.spec`.
 
 ## References
 
