@@ -40,6 +40,6 @@ if kubectl get pods -A 2>/dev/null | grep -q traefik; then
 fi
 
 kubectl apply --server-side --force-conflicts \
-  -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION:-v1.5.0}/standard-install.yaml"
+  -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION:-v1.6.3}/standard-install.yaml"
 
 echo "Cluster ready (context: $CTX)."

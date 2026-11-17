@@ -1,0 +1,25 @@
+# Module 2 exercise: block prompts that contain email addresses or a classic injection phrase.
+# Attached to the anthropic HTTPRoute, so it applies to every model call that uses that route.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: anthropic-prompt-guard
+  namespace: agentgateway-system
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: anthropic
+  backend:
+    ai:
+      promptGuard:
+        request:
+        - regex:
+            action: Reject          # Mask would redact the match and let the request continue
+            builtins:
+            - Email
+            matches:
+            - "(?i)ignore\\s+(all\\s+)?previous\\s+instructions"
+          response:
+            message: "Blocked by agentgateway prompt guard."
+            statusCode: 403

@@ -1,0 +1,21 @@
+# Module 3 exercise: gateway-side tool allowlist. Every MCP client, kagent or not, now sees only
+# these tools. printEnv (which dumps the server's environment variables) disappears for everyone.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: mcp-tool-allowlist
+  namespace: agentgateway-system
+spec:
+  targetRefs:
+  - group: agentgateway.dev
+    kind: AgentgatewayBackend
+    name: mcp
+  backend:
+    mcp:
+      authorization:
+        action: Allow
+        policy:
+          matchExpressions:      # any expression true = allowed (OR)
+          - 'mcp.tool.name == "fetch"'
+          - 'mcp.tool.name == "echo"'
+          - 'mcp.tool.name == "add"'

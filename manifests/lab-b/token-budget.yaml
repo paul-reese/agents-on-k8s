@@ -1,0 +1,17 @@
+# Module 2 exercise: cap model usage at 2,000 tokens per minute on the anthropic route.
+# Token counts are known only after a response, so the limit blocks the *next* request, with HTTP 429.
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: anthropic-token-budget
+  namespace: agentgateway-system
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: anthropic
+  traffic:
+    rateLimit:
+      local:
+      - tokens: 2000
+        unit: Minutes

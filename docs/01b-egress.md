@@ -2,6 +2,35 @@
 
 **Manifest:** `manifests/lab-a/egress-github.yaml`
 
+## Why this matters
+
+An agent decides at run time what to do, and a prompt can talk it into things. If its sandbox can reach
+anything on the internet, a successful prompt injection can send your data anywhere. Egress policy limits
+the damage: the sandbox can only reach the hosts its job needs, and secrets for those hosts never enter the
+sandbox at all.
+
+## How it fits together
+
+| Piece | Responsible for |
+|---|---|
+| Inferred access | Origins kagent works out from the agent's definition: ModelConfig endpoint, MCP server URLs, telemetry endpoint, the control plane. Always allowed |
+| `EgressPolicy` | Extra origins, optionally with a credential to inject. Lives in the agent's namespace |
+| `Agent.spec.egressPolicyRefs` | Which policies this agent gets. On the Agent, not the template |
+| kagent-controller | Resolves the policies, records the grant in Postgres, pushes it to running sessions |
+| Substrate egress gateway | Enforces it on every outbound request and swaps in credentials |
+
+```mermaid
+flowchart TD
+    REQ["Sandbox makes an HTTP(S) request"] --> GW["Substrate egress gateway"]
+    GW --> Q1{"Origin inferred?<br/>(model, MCP, telemetry, control plane)"}
+    Q1 -- yes --> CRED
+    Q1 -- no --> Q2{"Origin in an EgressPolicy<br/>listed on this Agent?"}
+    Q2 -- no --> BLOCK["Blocked"]
+    Q2 -- yes --> CRED{"Credential binding<br/>for this origin + header?"}
+    CRED -- yes --> SWAP["Replace placeholder header<br/>with the Secret value"] --> OUT["Forward to destination"]
+    CRED -- no --> OUT
+```
+
 ## The rule: deny by default
 
 With no policy, an agent reaches only what kagent **infers** from its definition: its model provider, its

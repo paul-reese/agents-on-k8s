@@ -1,0 +1,41 @@
+# Module 3: agentgateway combines both MCP servers into one endpoint at /mcp ("multiplexing").
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: mcp
+  namespace: agentgateway-system
+spec:
+  mcp:
+    prefixMode: Never        # plain tool names (fetch, echo, ...); names must be unique across servers
+    failureMode: FailOpen    # if one server is down, still serve tools from the other
+    targets:
+    - name: website-fetcher
+      static:
+        host: website-fetcher.mcp.svc.cluster.local
+        port: 80
+        protocol: SSE
+    - name: everything
+      static:
+        host: everything.mcp.svc.cluster.local
+        port: 3001
+        protocol: StreamableHTTP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mcp
+  namespace: agentgateway-system
+spec:
+  parentRefs:
+  - name: agentgateway-proxy
+    namespace: agentgateway-system
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /mcp
+    backendRefs:
+    - name: mcp
+      namespace: agentgateway-system
+      group: agentgateway.dev
+      kind: AgentgatewayBackend

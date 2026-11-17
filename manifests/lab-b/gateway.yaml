@@ -1,5 +1,6 @@
-# Gateway that accepts both HTTPRoutes and AgentgatewayModels.
-# Source: https://www.kagent.dev/docs/kagent/supported-providers/byo-agentgateway/
+# Module 2: the agentgateway proxy. One Gateway serves LLM (Module 2), MCP (Module 3) and A2A traffic.
+# The agentgateway controller sees this Gateway (gatewayClassName: agentgateway) and creates the
+# agentgateway-proxy Deployment + Service for it.
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -13,9 +14,4 @@ spec:
     port: 80
     allowedRoutes:
       namespaces:
-        from: All
-      kinds:
-      - group: gateway.networking.k8s.io
-        kind: HTTPRoute
-      - group: agentgateway.dev
-        kind: AgentgatewayModel
+        from: All          # routes in any namespace may attach

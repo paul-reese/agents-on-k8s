@@ -1,0 +1,44 @@
+# Module 3: tell kagent about the gateway's MCP endpoint, and give an agent some of its tools.
+apiVersion: api.kagent.dev/v1alpha3
+kind: RemoteMCPServer
+metadata:
+  name: agentgateway-mcp
+  namespace: kagent
+spec:
+  description: MCP tools served through agentgateway (website-fetcher + everything)
+  url: http://agentgateway-proxy.agentgateway-system.svc.cluster.local/mcp   # full name: Substrate needs it
+  protocol: STREAMABLE_HTTP
+  timeout: 30s
+---
+apiVersion: api.kagent.dev/v1alpha3
+kind: AgentTemplate
+metadata:
+  name: web-reader
+  namespace: kagent
+spec:
+  description: Reads web pages and summarizes them
+  modelConfig:
+    name: anthropic-via-agentgateway      # from Module 2; use default-model-config to skip the gateway
+  systemPrompt: |
+    You read web pages with the fetch tool and summarize them in a few bullet points.
+    Say which URL you read.
+  tools:
+    - mcp:
+        server:
+          kind: RemoteMCPServer
+          name: agentgateway-mcp
+        tools:            # kagent-side allowlist: the agent only ever sees these
+          - fetch
+          - echo
+---
+apiVersion: api.kagent.dev/v1alpha3
+kind: Agent
+metadata:
+  name: web-reader
+  namespace: kagent
+spec:
+  harnessRef:
+    name: kagent-default
+  template:
+    ref:
+      name: web-reader

@@ -1,11 +1,16 @@
-# kagent ModelConfig that sends model calls to agentgateway instead of the provider.
-apiVersion: kagent.dev/v1alpha2
+# Module 2: a kagent ModelConfig that sends model calls to agentgateway instead of api.anthropic.com.
+# No apiKeySecret: kagent holds no key at all. agentgateway adds the real key on the way out.
+#
+# Why it is allowed out of the sandbox: kagent infers egress from the endpoint override, so the
+# sandbox may reach exactly this origin (http, this host, port 80). Use the full service name;
+# Substrate does not expand short names.
+apiVersion: api.kagent.dev/v1alpha3
 kind: ModelConfig
 metadata:
-  name: agentgateway-model
+  name: anthropic-via-agentgateway
   namespace: kagent
 spec:
-  provider: OpenAI
-  model: gpt-4o-mini
-  openAI:
-    baseUrl: http://agentgateway-proxy.agentgateway-system.svc.cluster.local/v1
+  provider: Anthropic
+  model: claude-haiku-4-5
+  anthropic:
+    baseUrl: http://agentgateway-proxy.agentgateway-system.svc.cluster.local

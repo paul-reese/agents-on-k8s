@@ -1,0 +1,36 @@
+# Module 2: the Module 1 read-only agent, but its model traffic goes through agentgateway.
+# The only change from manifests/lab-a/k8s-readonly.yaml is modelConfig.name.
+apiVersion: api.kagent.dev/v1alpha3
+kind: AgentTemplate
+metadata:
+  name: k8s-via-gateway
+  namespace: kagent
+spec:
+  description: Read-only Kubernetes helper whose model calls go through agentgateway
+  modelConfig:
+    name: anthropic-via-agentgateway
+  systemPrompt: |
+    You help users understand the Kubernetes cluster you run in.
+    You can only read; never suggest you changed anything.
+  tools:
+    - mcp:
+        server:
+          kind: RemoteMCPServer
+          name: kagent-tool-server
+        tools:
+          - k8s_get_resources
+          - k8s_describe_resource
+          - k8s_get_events
+          - k8s_get_pod_logs
+---
+apiVersion: api.kagent.dev/v1alpha3
+kind: Agent
+metadata:
+  name: k8s-via-gateway
+  namespace: kagent
+spec:
+  harnessRef:
+    name: kagent-default
+  template:
+    ref:
+      name: k8s-via-gateway

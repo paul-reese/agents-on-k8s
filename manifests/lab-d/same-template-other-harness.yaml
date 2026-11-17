@@ -1,0 +1,13 @@
+# Module 4 exercise: the SAME behavior (template k8s-readonly) on a different runtime.
+# Only harnessRef changes. Compare answers, speed and the tool calls in the logs.
+apiVersion: api.kagent.dev/v1alpha3
+kind: Agent
+metadata:
+  name: k8s-readonly-claude
+  namespace: kagent
+spec:
+  harnessRef:
+    name: claude-default        # Claude Code as the runtime, instead of kagent-default
+  template:
+    ref:
+      name: k8s-readonly

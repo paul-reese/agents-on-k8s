@@ -1,0 +1,40 @@
+# Module 4: a small multi-agent setup built from your own templates.
+# "ops-lead" is a router. It has no tools of its own; its tools are two sub-agents.
+# Sub-agents are compiled into the SAME runtime as the parent (one sandbox, one session).
+apiVersion: api.kagent.dev/v1alpha3
+kind: AgentTemplate
+metadata:
+  name: ops-lead
+  namespace: kagent
+spec:
+  description: Routes questions to a Kubernetes specialist or a web researcher
+  modelConfig:
+    name: default-model-config
+  systemPrompt: |
+    You coordinate two specialists. You do not call cluster or web tools yourself.
+    - Questions about this cluster go to the kubernetes specialist.
+    - Questions that need a public web page go to the researcher.
+    If a question needs both, ask each and combine the answers. Say which specialist you used.
+  tools:
+    - subAgent:
+        name: kubernetes
+        description: Reads the Kubernetes cluster (pods, events, logs). Cannot change anything.
+        templateRef:
+          name: k8s-readonly          # from Module 1
+    - subAgent:
+        name: researcher
+        description: Fetches and summarizes a public web page given its URL.
+        templateRef:
+          name: web-reader            # from Module 3
+---
+apiVersion: api.kagent.dev/v1alpha3
+kind: Agent
+metadata:
+  name: ops-lead
+  namespace: kagent
+spec:
+  harnessRef:
+    name: kagent-default
+  template:
+    ref:
+      name: ops-lead
